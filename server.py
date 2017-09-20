@@ -2,12 +2,12 @@ from flask import Flask, render_template, redirect, request, session, flash
 # import the Connector function
 from mysqlconnection import MySQLConnector
 import re
-import os, binascii
-import md5
+from flask.ext.bcrypt import Bcrypt
 # create a regular expression object that we can use run operations on
 EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9.+_-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]+$')
 PASSWORD_REGEX = re.compile(r'^([^0-9]*|[^A-Z]*)$')
 app = Flask(__name__)
+bcrypt = Bcrypt(app)
 app.secret_key = 'secret103048580e8w7'
 
 # connect and store the connection in "mysql"
@@ -78,9 +78,13 @@ def register():
 		for error in errors:
 			flash(error)
 	else:
+		check_email = mysql.query_db("SELECT email FROM users WHERE email = :email", {'email': form['email']})
+		if len(check_email):
+			flash("Account at that email address ({}) is already taken".format(form['email']))
+			return redirect('/')
+
 		password = form['password']
-		salt = binascii.b2a_hex(os.urandom(15))
-		hashed_pw = md5.new(password + salt).hexdigest()
+		hashed_pw = bcrypt.generate_password_hash(password)
 
 		data = {
 			'first_name': request.form['first_name'],
@@ -89,7 +93,9 @@ def register():
 			'password': hashed_pw
 		}
 
-		query = "INSERT INTO users (users.first_name, users.last_name, users.email, users.password, users.created_at, users.updated_at) VALUES (:first_name,:last_name, :email,:password, NOW(), NOW())"
+		query = """INSERT INTO users (users.first_name, users.last_name, 
+			users.email, users.password, users.created_at, users.updated_at) 
+		VALUES (:first_name,:last_name, :email,:password, NOW(), NOW())"""
 
 		mysql.query_db(query, data)
 
