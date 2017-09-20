@@ -18,8 +18,8 @@ mysql=MySQLConnector(app,'fullfriends')
 def index():
 	return render_template("index.html")
 
-@app.route("/result", methods = ["POST"])
-def posting():
+@app.route("/register", methods = ["POST"])
+def register():
 	form = request.form
 	##########################
 	# LIST OF ERRORS TO FLASH#
@@ -29,31 +29,35 @@ def posting():
 	###########################
 	#VALIDATING THE FIRST NAME#
 	###########################
-	if len(request.form['first_name']) == 0:
+	if not len(form['first_name']):
 		errors.append("Please enter your first name.")
-	elif request.form['first_name'].isalpha() != True:
+	elif len(form['first_name']) < 2:
+		errors.append("First name must contain at least two characters.")
+	elif not form['first_name'].isalpha():
 		errors.append("First name must only contain alphabetic letters.")
 
 	##########################
 	#VALIDATING THE LAST NAME#
 	##########################
-	if len(request.form['last_name']) == 0:
-		errors.append("Last name cannot be empty!") 
-	elif request.form['last_name'].isalpha() != True:
+	if not len(form['last_name']):
+		errors.append("Last name cannot be empty!")
+	elif len(form['last_name']) < 2:
+		errors.append("Last name must contain at least two characters.")
+	elif not form['last_name'].isalpha():
 		errors.append("Last name must only contain alphabetic letters.")
 
 	######################
 	#VALIDATING THE EMAIL#
 	######################
-	if len(request.form['email']) == 0:
-		errors.append("Email cannot be blank!")
-	elif not EMAIL_REGEX.match(request.form['email']):
-		errors.append("Invalid Email Address!")
+	if not len(form['email']):
+		errors.append("Please enter your e-mail address.")
+	elif not EMAIL_REGEX.match(form['email']):
+		errors.append("Please enter a valid e-mail address.")
 
 	#########################
 	#VALIDATING THE PASSWORD#
 	#########################
-	if len(form['password']) == 0:
+	if  not  len(form['password']):
 		errors.append("Please enter a password")
 	else:
 		if len(form['password']) < 8:
@@ -64,7 +68,7 @@ def posting():
 			errors.append("Password must contain at least one number.")
 		if not any([letter in "!@#$%^&*()-_=+~`\"'<>,.?/:;\}{][|" for letter in form['password']]):
 			errors.append("Password must contain at least one special character.")
-		if form['password'] != form['password_2']:
+		if form['password'] != form['passconf']:
 			errors.append('Password and confirmation fields must match.')
 
 	##########################
@@ -74,7 +78,7 @@ def posting():
 		for error in errors:
 			flash(error)
 	else:
-		password = request.form['password']
+		password = form['password']
 		salt = binascii.b2a_hex(os.urandom(15))
 		hashed_pw = md5.new(password + salt).hexdigest()
 
@@ -90,6 +94,13 @@ def posting():
 		mysql.query_db(query, data)
 
 		return redirect('/submit')
+
+
+@app.route('/login', methods = ["POST"])
+def login():
+	pass
+
+
 
 @app.route("/submit")
 def submitted():
