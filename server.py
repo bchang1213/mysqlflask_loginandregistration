@@ -20,6 +20,7 @@ def index():
 
 @app.route("/result", methods = ["POST"])
 def posting():
+	form = request.form
 	##########################
 	# LIST OF ERRORS TO FLASH#
 	##########################
@@ -28,15 +29,15 @@ def posting():
 	###########################
 	#VALIDATING THE FIRST NAME#
 	###########################
-	if len(request.form['first_name']) < 1:
-		errors.append("First name cannot be empty!")
+	if len(request.form['first_name']) == 0:
+		errors.append("Please enter your first name.")
 	elif request.form['first_name'].isalpha() != True:
 		errors.append("First name must only contain alphabetic letters.")
 
 	##########################
 	#VALIDATING THE LAST NAME#
 	##########################
-	if len(request.form['last_name']) < 1:
+	if len(request.form['last_name']) == 0:
 		errors.append("Last name cannot be empty!") 
 	elif request.form['last_name'].isalpha() != True:
 		errors.append("Last name must only contain alphabetic letters.")
@@ -44,7 +45,7 @@ def posting():
 	######################
 	#VALIDATING THE EMAIL#
 	######################
-	if len(request.form['email']) < 1:
+	if len(request.form['email']) == 0:
 		errors.append("Email cannot be blank!")
 	elif not EMAIL_REGEX.match(request.form['email']):
 		errors.append("Invalid Email Address!")
@@ -52,17 +53,19 @@ def posting():
 	#########################
 	#VALIDATING THE PASSWORD#
 	#########################
-	if len(request.form['password']) < 8:
-		errors.append("Password must be at least 8 characters.")
-	elif PASSWORD_REGEX.match(request.form['password']):
-		errors.append("You must include at least 1 number and 1 uppercase letter in your password.")
-
-	#####################################
-	#VALIDATING CONFIRMATION OF PASSWORD#
-	#####################################
-	if request.form['password_2'] != request.form['password']:
-		errors.append("Passwords do not match.")
-
+	if len(form['password']) == 0:
+		errors.append("Please enter a password")
+	else:
+		if len(form['password']) < 8:
+			errors.append("Password must be at least 8 characters.")
+		if not any([letter.isupper() for letter in form['password']]):
+			errors.append("Password must contain at least one uppercase letter.")
+		if not any([letter.isdigit() for letter in form['password']]):
+			errors.append("Password must contain at least one number.")
+		if not any([letter in "!@#$%^&*()-_=+~`\"'<>,.?/:;\}{][|" for letter in form['password']]):
+			errors.append("Password must contain at least one special character.")
+		if form['password'] != form['password_2']:
+			errors.append('Password and confirmation fields must match.')
 
 	##########################
 	#IF THERE WERE ANY ERRORS#
@@ -70,7 +73,6 @@ def posting():
 	if len(errors) > 0:
 		for error in errors:
 			flash(error)
-		return redirect('/')
 	else:
 		password = request.form['password']
 		salt = binascii.b2a_hex(os.urandom(15))
@@ -83,15 +85,11 @@ def posting():
 			'password': hashed_pw
 		}
 
-	query = """INSERT INTO users (users.first_name, users.last_name, 
-	users.email, users.password, users.created_at, users.updated_at) 
-	VALUES (:first_name,:last_name, :email,:password, NOW(), NOW())"""
-	
+		query = "INSERT INTO users (users.first_name, users.last_name, users.email, users.password, users.created_at, users.updated_at) VALUES (:first_name,:last_name, :email,:password, NOW(), NOW())"
 
+		mysql.query_db(query, data)
 
-	mysql.query_db(query, data)
-
-	return redirect('/submit')
+		return redirect('/submit')
 
 @app.route("/submit")
 def submitted():
