@@ -16,6 +16,8 @@ mysql=MySQLConnector(app,'fullfriends')
 
 @app.route('/')
 def index():
+	if 'user_id' in session:
+		return redirect('/submit')
 	return render_template("index.html")
 
 @app.route("/register", methods = ["POST"])
@@ -76,11 +78,11 @@ def register():
 	##########################
 	if len(errors) > 0:
 		for error in errors:
-			flash(error)
+			flash(error, "error")
 	else:
 		check_email = mysql.query_db("SELECT email FROM users WHERE email = :email", {'email': form['email']})
 		if len(check_email):
-			flash("Account at that email address ({}) is already taken".format(form['email']))
+			flash("Account at that email address ({}) is already taken".format(form['email']), "error")
 			return redirect('/')
 
 		password = form['password']
@@ -97,21 +99,57 @@ def register():
 			users.email, users.password, users.created_at, users.updated_at) 
 		VALUES (:first_name,:last_name, :email,:password, NOW(), NOW())"""
 
-		mysql.query_db(query, data)
-
-		return redirect('/submit')
+		new_user = mysql.query_db(query, data)
+		if new_user:
+				flash('Registration was successful! Please sign-in to continue.',"success")
+				return redirect('/')
+		else:
+			flash('something went wrong', 'error')
 
 
 @app.route('/login', methods = ["POST"])
 def login():
-	pass
+	form = request.form
+	if not EMAIL_REGEX.match(form['email']) or len(form['password']) < 8:
+		flash('Please enter valid credentials', "error")
+	return redirect('/')
 
+	encrypted_password = bcrypt.generate_password_hash(form['password'])
+
+	data = {"email": form['email'], "password": encrypted_password}
+	query = "SELECT * FROM users WHERE email = :email"
+
+	users = mysql.query_db(query,data)
+
+	if len(users):
+		user = users[0]
+		if not bcrypt.check_password_hash(user['password'],form['password']):
+			flash('Account with those credentials could not be found.', 'error')
+			return redirect('/')
+		else:
+			session['user_id'] = user['id']
+			flash('Login successful!', 'success')
+			return redirect('/submit')
+	else:
+		flash('Account with those credentials could not be found.','error')
+	return redirect('/')
+
+@app.route("/logout")
+	def logout():
+		session.clear()
+		return redirect('/')
 
 
 @app.route("/submit")
 def submitted():
-	users = mysql.query_db('SELECT * FROM users')
-	return	render_template("success.html", users=users)
+	if 'user_id' not in session:
+		flash("You must be signed in to do that!", "error")
+		return redirect('/')
+	users = mysql.query_db('SELECT * FROM users WHERE id = :id', {'id':session['user_id']})
+	if not len(users):
+		flash("Something went wrong", 'error')
+		return redirect('/')
+	return	render_template("success.html", user = user[0])
 
 @app.route("/submit/<user_id>/delete")
 def delete_user(user_id):
