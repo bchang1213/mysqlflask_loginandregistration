@@ -78,6 +78,10 @@ def register():
 		for error in errors:
 			flash(error)
 	else:
+		check_email = mysql.query_db("SELECT email FROM users WHERE email = :email", {'email': form['email']})
+		if len(check_email):
+			flash("Account at that email address ({}) is already taken".format(form['email']))
+			return redirect('/')
 		password = form['password']
 		salt = binascii.b2a_hex(os.urandom(15))
 		hashed_pw = md5.new(password + salt).hexdigest()
